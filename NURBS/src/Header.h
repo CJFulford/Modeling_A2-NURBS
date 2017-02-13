@@ -10,6 +10,8 @@
 #define twoPI 2.f * PI
 #define halfPI 0.5f * PI
 
+//#define ThreeD
+
 #define defaultZoom 8.f
 
 #define WINDOW_WIDTH 700
@@ -20,3 +22,6 @@ const glm::mat4 identity(1.0f);
 const glm::vec3 defaultUp(0.f, 1.f, 0.f),
                 defaultCam(0.f, 0.2f, 0.2f),
                 defaultCenter(0.f, 0.f, 0.f);
+
+void bSpline(std::vector<glm::vec3> &input, std::vector<glm::vec3> &output, int order);
+void bSpline(std::vector<glm::vec2> &input, std::vector<glm::vec2> &output, int order);

@@ -10,10 +10,14 @@
 double  mouse_old_x, 
         mouse_old_y;
 
-float   rotate_x = 0.0,
-        rotate_y = 0.0,
-        aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT,
-        zoom = defaultZoom;
+float aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+#ifdef ThreeD
+    float   rotate_x = 0.0,
+            rotate_y = 0.0,
+            zoom = defaultZoom;
+#endif // ThreeD
+
+
 
 const GLfloat clearColor[] = { 0.f, 0.f, 0.f };
 
@@ -42,17 +46,28 @@ void generateBuffer()
     glGenVertexArrays(1, &vertexArray);
     glBindVertexArray(vertexArray);
 
-    std::vector<glm::vec3> groundVerts;
-
-    groundVerts.push_back(glm::vec3(-0.5f, -0.1f, -0.5f));
-    groundVerts.push_back(glm::vec3(-0.5f, -0.1f, 0.5f));
-    groundVerts.push_back(glm::vec3(0.5f, -0.1f, -0.5f));
-    groundVerts.push_back(glm::vec3(0.5f, -0.1f, 0.5f));
+#ifdef ThreeD
+    std::vector<glm::vec3> verts;
+    verts.push_back(glm::vec3(-0.5f, -0.1f, -0.5f));
+    verts.push_back(glm::vec3(-0.5f, -0.1f, 0.5f));
+    verts.push_back(glm::vec3(0.5f, -0.1f, -0.5f));
+    verts.push_back(glm::vec3(0.5f, -0.1f, 0.5f));
+#else
+    std::vector<glm::vec2> verts;
+    verts.push_back(glm::vec2(-0.5f, -0.5f));
+    verts.push_back(glm::vec2(-0.5f, 0.5f));
+    verts.push_back(glm::vec2(0.5f, -0.5f));
+    verts.push_back(glm::vec2(0.5f, 0.5f));
+#endif
 
     glGenBuffers(1, &vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(groundVerts[0]) * groundVerts.size(), &groundVerts[0], GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts[0]) * verts.size(), &verts[0], GL_STATIC_DRAW);
+#ifdef ThreeD
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+#else
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+#endif
     glEnableVertexAttribArray(0);
 
     glBindVertexArray(0);
@@ -60,22 +75,27 @@ void generateBuffer()
 
 void generateShaders()
 {
-    program = generateProgram("shaders/general.vert",
-                                    "shaders/general.frag");
+#ifdef ThreeD
+    program = generateProgram("shaders/general3D.vert", "shaders/general3D.frag");
+#else
+    program = generateProgram("shaders/general2D.vert", "shaders/general2D.frag");
+#endif
 }
 
 void passBasicUniforms(GLuint program)
 {
+#ifdef ThreeD
     glm::mat4   modelview = glm::lookAt(cam * zoom, center, up),
-    projection = glm::perspective(45.0f, aspectRatio, 0.01f, 100.0f);
+        projection = glm::perspective(45.0f, aspectRatio, 0.01f, 100.0f);
 
-    glm::mat4   rotationX = rotate(identity , rotate_x  * PI / 180.0f, glm::vec3(1.f, 0.f, 0.f)),
-                rotationY = rotate(rotationX, rotate_y  * PI / 180.0f, glm::vec3(0.f, 1.f, 0.f));
+    glm::mat4   rotationX = rotate(identity, rotate_x  * PI / 180.0f, glm::vec3(1.f, 0.f, 0.f)),
+        rotationY = rotate(rotationX, rotate_y  * PI / 180.0f, glm::vec3(0.f, 1.f, 0.f));
 
     modelview *= rotationY;
 
     glUniformMatrix4fv(glGetUniformLocation(program, "modelview"), 1, GL_FALSE, value_ptr(modelview));
     glUniformMatrix4fv(glGetUniformLocation(program, "projection"), 1, GL_FALSE, value_ptr(projection));
+#endif // ThreeD
 }
 
 void render(GLuint program)
@@ -172,14 +192,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
+#ifdef ThreeD
     if (yoffset < 0)
         zoom += 0.1f;
     else if (yoffset > 0)
         zoom -= 0.1f;
+#endif // ThreeD
 }
 
 void motion(GLFWwindow* window, double x, double y)
 {
+#ifdef ThreeD
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1))
     {
         rotate_x += (float)((y - mouse_old_y) * 0.5f);
@@ -187,6 +210,7 @@ void motion(GLFWwindow* window, double x, double y)
     }
     mouse_old_x = x;
     mouse_old_y = y;
+#endif // ThreeD
 }
 
 void printOpenGLVersion()

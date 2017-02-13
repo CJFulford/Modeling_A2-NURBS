@@ -41,12 +41,21 @@
     <ClCompile Include="libraries\GLAD V4.5\src\glad.c">
       <Filter>Resource Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Geometry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\general.frag">
+    <None Include="shaders\general3D.frag">
       <Filter>Source Files\shaders</Filter>
     </None>
-    <None Include="shaders\general.vert">
+    <None Include="shaders\general3D.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="shaders\general2D.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="shaders\general2D.vert">
       <Filter>Source Files\shaders</Filter>
     </None>
   </ItemGroup>
