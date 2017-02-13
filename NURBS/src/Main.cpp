@@ -11,10 +11,15 @@ double  mouse_old_x,
         mouse_old_y;
 
 float aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+int order = 4, splineSize = 0;
+
 #ifdef ThreeD
     float   rotate_x = 0.0,
             rotate_y = 0.0,
             zoom = defaultZoom;
+            std::vector<glm::vec3> controls;
+#else
+            std::vector<glm::vec2> controls;
 #endif // ThreeD
 
 
@@ -25,12 +30,10 @@ glm::vec3   up = defaultUp,
             cam = defaultCam,
             center = defaultCenter;
 
-
-
-
-GLuint vertexArray = -1, program = -1;
-std::vector<glm::vec3> vertices;
-
+GLuint  splineVertexArray = -1,
+        controlsVertexArray = -1,
+        splineProgram = -1, 
+        controlsProgram = -1;
 
 void errorCallback(int error, const char* description);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -39,30 +42,45 @@ void window_size_callback(GLFWwindow* window, int width, int height);
 void motion(GLFWwindow* window, double x, double y);
 void printOpenGLVersion();
 
-void generateBuffer()
+// takes in the order of the spline and returns the number of points in the resulting curve
+int generateSplineBuffers(int order)
 {
     GLuint vertexBuffer = 0;
 
-    glGenVertexArrays(1, &vertexArray);
-    glBindVertexArray(vertexArray);
+    glGenVertexArrays(1, &splineVertexArray);
+    glBindVertexArray(splineVertexArray);
 
 #ifdef ThreeD
-    std::vector<glm::vec3> verts;
-    verts.push_back(glm::vec3(-0.5f, -0.1f, -0.5f));
-    verts.push_back(glm::vec3(-0.5f, -0.1f, 0.5f));
-    verts.push_back(glm::vec3(0.5f, -0.1f, -0.5f));
-    verts.push_back(glm::vec3(0.5f, -0.1f, 0.5f));
+    std::vector<glm::vec3> spline;
 #else
-    std::vector<glm::vec2> verts;
-    verts.push_back(glm::vec2(-0.5f, -0.5f));
-    verts.push_back(glm::vec2(-0.5f, 0.5f));
-    verts.push_back(glm::vec2(0.5f, -0.5f));
-    verts.push_back(glm::vec2(0.5f, 0.5f));
+    std::vector<glm::vec2> spline;
 #endif
+
+    bSpline(controls, spline, order);
 
     glGenBuffers(1, &vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts[0]) * verts.size(), &verts[0], GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(spline[0]) * spline.size(), &spline[0], GL_STATIC_DRAW);
+#ifdef ThreeD
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+#else
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+#endif
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+    return spline.size();
+}
+
+void generateControlsBuffer()
+{
+    GLuint vertexBuffer = 0;
+
+    glGenVertexArrays(1, &controlsVertexArray);
+    glBindVertexArray(controlsVertexArray);
+    glGenBuffers(1, &vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(controls[0]) * controls.size(), &controls[0], GL_STATIC_DRAW);
 #ifdef ThreeD
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 #else
@@ -76,11 +94,14 @@ void generateBuffer()
 void generateShaders()
 {
 #ifdef ThreeD
-    program = generateProgram("shaders/general3D.vert", "shaders/general3D.frag");
+    splineProgram = generateProgram("shaders/general3D.vert", "shaders/general3D.frag");
+    controlsProgram = generateProgram("shaders/general3D.vert", "shaders/general3D.frag");
 #else
-    program = generateProgram("shaders/general2D.vert", "shaders/general2D.frag");
+    splineProgram = generateProgram("shaders/general2D.vert", "shaders/general2D.frag");
+    controlsProgram = generateProgram("shaders/general2D.vert", "shaders/general2D.frag");
 #endif
 }
+
 
 void passBasicUniforms(GLuint program)
 {
@@ -98,14 +119,27 @@ void passBasicUniforms(GLuint program)
 #endif // ThreeD
 }
 
-void render(GLuint program)
+void renderSpline(int numOfVertices)
 {
-    glBindVertexArray(vertexArray);
-    glUseProgram(program);
+    glBindVertexArray(splineVertexArray);
+    glUseProgram(splineProgram);
 
-    passBasicUniforms(program);
+    passBasicUniforms(splineProgram);
 
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDrawArrays(GL_LINE_STRIP, 0, numOfVertices);
+
+    glBindVertexArray(0);
+}
+
+void renderControls()
+{
+    glBindVertexArray(controlsVertexArray);
+    glUseProgram(controlsProgram);
+
+    passBasicUniforms(controlsProgram);
+
+    glPointSize(10);
+    glDrawArrays(GL_POINTS, 0, controls.size());
 
     glBindVertexArray(0);
 }
@@ -119,7 +153,6 @@ int main()
 	}
 	glfwSetErrorCallback(errorCallback);
 
-	//glfwWindowHint(GLFW_RESIZABLE, false);
 	glfwWindowHint(GLFW_DOUBLEBUFFER, true);
 	glfwWindowHint(GLFW_SAMPLES, 32);
 
@@ -143,9 +176,23 @@ int main()
 	}
 	printOpenGLVersion();
 
+#ifdef ThreeD
+    controls.push_back(glm::vec3(-0.5f, -0.1f, -0.5f));
+    controls.push_back(glm::vec3(-0.5f, -0.1f, 0.5f));
+    controls.push_back(glm::vec3(0.5f, -0.1f, 0.5f));
+    controls.push_back(glm::vec3(0.5f, -0.1f, -0.5f));
+#else
+    controls.push_back(glm::vec2(-0.5f, -0.5f));
+    controls.push_back(glm::vec2(-0.5f, 0.5f));
+    controls.push_back(glm::vec2(0.5f, 0.5f));
+    controls.push_back(glm::vec2(0.5f, -0.5f));
+#endif // ThreeD
+
+
     generateShaders();
 
-    generateBuffer();
+    splineSize = generateSplineBuffers(order);
+    generateControlsBuffer();
 
     glfwSwapInterval(1);
 
@@ -155,7 +202,8 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearBufferfv(GL_COLOR, 0, clearColor);
 
-        render(program);
+        renderSpline(splineSize);
+        renderControls();
 
         glDisable(GL_DEPTH_TEST);
 		glfwSwapBuffers(window);
@@ -179,10 +227,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             generateShaders();
             std::cout << "Done" << std::endl;
 			break;
-        case(GLFW_KEY_M):
-            std::cout << "Recalculating Curve... ";
-            generateBuffer();
-            std::cout << "Done" << std::endl;
+        case(GLFW_KEY_W):
+            std::cout << "order = " << order << std::endl;
+            if (order + 1 <= (int)controls.size())
+            {
+                order++;
+                splineSize = generateSplineBuffers(order);
+            }
+            break;
+        case(GLFW_KEY_S):
+            std::cout << "order = " << order << std::endl;
+            if (order - 1 > 0)
+            {
+                order--;
+                splineSize = generateSplineBuffers(order);
+            }
             break;
 		default:
 			break;

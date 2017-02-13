@@ -1,6 +1,6 @@
 #include "Header.h"
 
-#define arcLength 0.08f
+#define pointStep 0.001f
 
 using namespace std;
 using namespace glm;
@@ -34,54 +34,37 @@ float deBoor_Cox(int i, int order, float u)
     }
 }
 
-void bSpline(vector<vec3> &input, vector<vec3> &output, int order)
-{
-    float maxHeight = 0.f;
-    int minNumOfKnots = input.size() + order;
+// different parameters for bspline function if 2d or 3d
+#ifdef ThreeD
+    void bSpline(vector<vec3> &input, vector<vec3> &output, int order)
+#else
+    void bSpline(vector<vec2> &input, vector<vec2> &output, int order)
+#endif
 
-    for (int i = 0; i < minNumOfKnots; i++)
+{
+    unsigned int minNumOfKnots = input.size() + order;
+
+    for (unsigned int i = 0; i < minNumOfKnots; i++)
     {
-        if (i < order)
+        if ((int)i < order)
             knots.push_back(0.f);
-        else if ((unsigned int)i > input.size())
+        else if (i > input.size())
             knots.push_back(1.f);
         else
             knots.push_back(knots[i - 1] + (1.f / (input.size() - order + 1)));
     }
 
-    for (float u = 0.f; u <= 1.f; u += 0.000005f)
+    for (float u = 0.f; u <= 1.f; u += pointStep)
     {
-        vec3 point = vec3(0.f, 0.f, 0.f);
-        for (int i = 0; (unsigned int)i < input.size(); i++)
+        #ifdef ThreeD
+            vec3 point = vec3(0.f, 0.f);
+        #else
+            vec2 point = vec2(0.f, 0.f);
+        #endif
+        for (unsigned int i = 0; i < input.size(); i++)
             point += (input[i] * deBoor_Cox(i, order, u));
 
-        if (u == 0.f || distance(output.back(), point) > arcLength)
-            output.push_back(point);
+        output.push_back(point);
     }
-}
-
-void bSpline(vector<vec2> &input, vector<vec2> &output, int order)
-{
-    float maxHeight = 0.f;
-    int minNumOfKnots = input.size() + order;
-
-    for (int i = 0; i < minNumOfKnots; i++)
-    {
-        if (i < order)
-            knots.push_back(0.f);
-        else if ((unsigned int)i > input.size())
-            knots.push_back(1.f);
-        else
-            knots.push_back(knots[i - 1] + (1.f / (input.size() - order + 1)));
-    }
-
-    for (float u = 0.f; u <= 1.f; u += 0.000005f)
-    {
-        vec2 point = vec2(0.f, 0.f);
-        for (int i = 0; (unsigned int)i < input.size(); i++)
-            point += (input[i] * deBoor_Cox(i, order, u));
-
-        if (u == 0.f || distance(output.back(), point) > arcLength)
-            output.push_back(point);
-    }
+    output.push_back(input.back());
 }
