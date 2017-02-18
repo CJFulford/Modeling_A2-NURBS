@@ -1,6 +1,6 @@
 #include "Header.h"
 
-#define pointStep 0.001f
+#define pointStep 0.01f
 
 using namespace std;
 using namespace glm;
@@ -42,26 +42,36 @@ float deBoor_Cox(int i, int order, float u)
 #endif
 
 {
-    unsigned int minNumOfKnots = input.size() + order;
+        unsigned int    minNumOfKnots = input.size() + order,
+                        delta = 0;
+    float uStep = (1.f / (input.size() - order + 1));
+    knots.clear();
 
-    for (unsigned int i = 0; i < minNumOfKnots; i++)
+
+    for (int i = 0; i < minNumOfKnots; i++)
     {
-        if ((int)i < order)
+        if (i < order)
             knots.push_back(0.f);
         else if (i > input.size())
             knots.push_back(1.f);
         else
-            knots.push_back(knots[i - 1] + (1.f / (input.size() - order + 1)));
+            knots.push_back(knots[i - 1] + uStep);
     }
 
     for (float u = 0.f; u <= 1.f; u += pointStep)
     {
-        #ifdef ThreeD
-            vec3 point = vec3(0.f, 0.f);
-        #else
-            vec2 point = vec2(0.f, 0.f);
-        #endif
-        for (unsigned int i = 0; i < input.size(); i++)
+    #ifdef ThreeD
+        vec3 point = vec3(0.f, 0.f);
+    #else
+        vec2 point = vec2(0.f, 0.f);
+    #endif
+        
+        while (u >= knots[delta + 1])
+            delta++;
+
+        cout << delta << endl;
+
+        for (unsigned int i = delta - order + 1; i < delta + 1; i++)
             point += (input[i] * deBoor_Cox(i, order, u));
 
         output.push_back(point);

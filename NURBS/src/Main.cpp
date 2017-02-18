@@ -102,7 +102,6 @@ void generateShaders()
 #endif
 }
 
-
 void passBasicUniforms(GLuint program)
 {
 #ifdef ThreeD
@@ -156,7 +155,7 @@ int main()
 	glfwWindowHint(GLFW_DOUBLEBUFFER, true);
 	glfwWindowHint(GLFW_SAMPLES, 32);
 
-	GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Rollercoaster", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "NURBS Curve", NULL, NULL);
 
 	if (!window) {
 		std::cout << "Failed to create window" << std::endl;
@@ -207,7 +206,7 @@ int main()
 
         glDisable(GL_DEPTH_TEST);
 		glfwSwapBuffers(window);
-		glfwPollEvents();
+		glfwWaitEvents();
 	}
 
 	// Shutdow the program
@@ -228,20 +227,20 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             std::cout << "Done" << std::endl;
 			break;
         case(GLFW_KEY_W):
-            std::cout << "order = " << order << std::endl;
             if (order + 1 <= (int)controls.size())
             {
                 order++;
                 splineSize = generateSplineBuffers(order);
             }
+            std::cout << "order = " << order << std::endl;
             break;
         case(GLFW_KEY_S):
-            std::cout << "order = " << order << std::endl;
-            if (order - 1 > 0)
+            if (order - 1 > 1)  // dont allow an order of 1, rather a degree 0 curve
             {
                 order--;
                 splineSize = generateSplineBuffers(order);
             }
+            std::cout << "order = " << order << std::endl;
             break;
 		default:
 			break;
