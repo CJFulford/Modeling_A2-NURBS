@@ -10,19 +10,20 @@
 double  mouse_old_x, 
         mouse_old_y;
 
-float aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
-int order = 4, splineSize = 0;
+float   aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT,
+        uInc = 0.01f;
+int order = 2, 
+    splineSize = 0, 
+    pointToMove = -1, 
+    window_width = WINDOW_WIDTH,
+    window_height = WINDOW_HEIGHT;
+bool movePoint = false;
 
-#ifdef ThreeD
-    float   rotate_x = 0.0,
-            rotate_y = 0.0,
-            zoom = defaultZoom;
-            std::vector<glm::vec3> controls;
-#else
-            std::vector<glm::vec2> controls;
-#endif // ThreeD
+float   rotate_x = 0.0,
+        rotate_y = 0.0,
+        zoom = defaultZoom;
 
-
+std::vector<glm::vec2> controls;
 
 const GLfloat clearColor[] = { 0.f, 0.f, 0.f };
 
@@ -37,9 +38,9 @@ GLuint  splineVertexArray = -1,
 
 void errorCallback(int error, const char* description);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void window_size_callback(GLFWwindow* window, int width, int height);
-void motion(GLFWwindow* window, double x, double y);
 void printOpenGLVersion();
 
 // takes in the order of the spline and returns the number of points in the resulting curve
@@ -50,22 +51,14 @@ int generateSplineBuffers(int order)
     glGenVertexArrays(1, &splineVertexArray);
     glBindVertexArray(splineVertexArray);
 
-#ifdef ThreeD
-    std::vector<glm::vec3> spline;
-#else
     std::vector<glm::vec2> spline;
-#endif
 
-    bSpline(controls, spline, order);
+    bSpline(controls, spline, order, uInc);
 
     glGenBuffers(1, &vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(spline[0]) * spline.size(), &spline[0], GL_STATIC_DRAW);
-#ifdef ThreeD
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-#else
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-#endif
     glEnableVertexAttribArray(0);
 
     glBindVertexArray(0);
@@ -81,11 +74,7 @@ void generateControlsBuffer()
     glGenBuffers(1, &vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(controls[0]) * controls.size(), &controls[0], GL_STATIC_DRAW);
-#ifdef ThreeD
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-#else
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-#endif
     glEnableVertexAttribArray(0);
 
     glBindVertexArray(0);
@@ -93,37 +82,14 @@ void generateControlsBuffer()
 
 void generateShaders()
 {
-#ifdef ThreeD
-    splineProgram = generateProgram("shaders/general3D.vert", "shaders/general3D.frag");
-    controlsProgram = generateProgram("shaders/general3D.vert", "shaders/general3D.frag");
-#else
-    splineProgram = generateProgram("shaders/general2D.vert", "shaders/general2D.frag");
-    controlsProgram = generateProgram("shaders/general2D.vert", "shaders/general2D.frag");
-#endif
-}
-
-void passBasicUniforms(GLuint program)
-{
-#ifdef ThreeD
-    glm::mat4   modelview = glm::lookAt(cam * zoom, center, up),
-        projection = glm::perspective(45.0f, aspectRatio, 0.01f, 100.0f);
-
-    glm::mat4   rotationX = rotate(identity, rotate_x  * PI / 180.0f, glm::vec3(1.f, 0.f, 0.f)),
-        rotationY = rotate(rotationX, rotate_y  * PI / 180.0f, glm::vec3(0.f, 1.f, 0.f));
-
-    modelview *= rotationY;
-
-    glUniformMatrix4fv(glGetUniformLocation(program, "modelview"), 1, GL_FALSE, value_ptr(modelview));
-    glUniformMatrix4fv(glGetUniformLocation(program, "projection"), 1, GL_FALSE, value_ptr(projection));
-#endif // ThreeD
+    splineProgram = generateProgram("shaders/general.vert", "shaders/general.frag");
+    controlsProgram = generateProgram("shaders/general.vert", "shaders/general.frag");
 }
 
 void renderSpline(int numOfVertices)
 {
     glBindVertexArray(splineVertexArray);
     glUseProgram(splineProgram);
-
-    passBasicUniforms(splineProgram);
 
     glDrawArrays(GL_LINE_STRIP, 0, numOfVertices);
 
@@ -135,12 +101,27 @@ void renderControls()
     glBindVertexArray(controlsVertexArray);
     glUseProgram(controlsProgram);
 
-    passBasicUniforms(controlsProgram);
-
-    glPointSize(10);
+    glPointSize(15);
     glDrawArrays(GL_POINTS, 0, controls.size());
 
     glBindVertexArray(0);
+}
+
+void pointMove(GLFWwindow *window)
+{
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    float x = xpos * 2.f / window_width - 1;
+    float y = -(ypos * 2.f / window_height - 1);
+
+    controls[pointToMove] = glm::vec2(x, y);
+
+    if (controls.size() >= 1)
+        generateControlsBuffer();
+
+    if (controls.size() >= 2)
+        splineSize = generateSplineBuffers(order);
 }
 
 int main()
@@ -162,11 +143,11 @@ int main()
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 	}
-	glfwSetKeyCallback(window, key_callback);
-    glfwSetCursorPosCallback(window, motion);
-    glfwSetScrollCallback(window, scroll_callback);
-    glfwSetWindowSizeCallback(window, window_size_callback);
-	glfwMakeContextCurrent(window);
+	glfwSetKeyCallback          (window, key_callback); 
+    glfwSetMouseButtonCallback  (window, mouse_button_callback);
+    glfwSetScrollCallback       (window, scroll_callback);
+    glfwSetWindowSizeCallback   (window, window_size_callback);
+	glfwMakeContextCurrent      (window);
 
 	if (!gladLoadGL())
 	{
@@ -175,23 +156,7 @@ int main()
 	}
 	printOpenGLVersion();
 
-#ifdef ThreeD
-    controls.push_back(glm::vec3(-0.5f, -0.1f, -0.5f));
-    controls.push_back(glm::vec3(-0.5f, -0.1f, 0.5f));
-    controls.push_back(glm::vec3(0.5f, -0.1f, 0.5f));
-    controls.push_back(glm::vec3(0.5f, -0.1f, -0.5f));
-#else
-    controls.push_back(glm::vec2(-0.5f, -0.5f));
-    controls.push_back(glm::vec2(-0.5f, 0.5f));
-    controls.push_back(glm::vec2(0.5f, 0.5f));
-    controls.push_back(glm::vec2(0.5f, -0.5f));
-#endif // ThreeD
-
-
     generateShaders();
-
-    splineSize = generateSplineBuffers(order);
-    generateControlsBuffer();
 
     glfwSwapInterval(1);
 
@@ -201,12 +166,16 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearBufferfv(GL_COLOR, 0, clearColor);
 
-        renderSpline(splineSize);
-        renderControls();
+        if (controls.size() > 1)
+            renderSpline(splineSize);
+        if (controls.size() > 0)
+            renderControls();
 
         glDisable(GL_DEPTH_TEST);
 		glfwSwapBuffers(window);
-		glfwWaitEvents();
+		glfwPollEvents();
+
+        if (movePoint) pointMove(window);
 	}
 
 	// Shutdow the program
@@ -248,27 +217,85 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 }
 
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-#ifdef ThreeD
-    if (yoffset < 0)
-        zoom += 0.1f;
-    else if (yoffset > 0)
-        zoom -= 0.1f;
-#endif // ThreeD
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    float x = xpos * 2.f / window_width - 1;
+    float y = -(ypos * 2.f / window_height - 1);
+
+    float pointSize = 0.04f;
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    {
+        int i = 0;
+        for (i; i < controls.size(); i++)
+        {
+            if (glm::distance(glm::vec2(x, y), controls[i]) <= pointSize)
+            {
+                movePoint = true;
+                pointToMove = i;
+                break;
+            }
+        }
+        if (i == controls.size())
+            controls.push_back(glm::vec2(x, y));
+    }
+    else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+    {
+        for (int i = 0; i < controls.size(); i++)
+        {
+            if (glm::distance(glm::vec2(x, y), controls[i]) <= pointSize)
+            {
+                controls.erase(controls.begin() + i);
+                break;
+            }
+        }
+    }
+    else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+        movePoint = false;
+
+    if (controls.size() >= 1)
+        generateControlsBuffer();
+
+    if(controls.size() >= 2)
+        splineSize = generateSplineBuffers(order);
 }
 
-void motion(GLFWwindow* window, double x, double y)
+void incU(bool inc)
 {
-#ifdef ThreeD
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1))
+    float   uIncStep    = 0.005f, 
+            uIncLimit   = 0.0001f, 
+            uInc2       = 0.f;
+    if (!inc)
+        uInc2 = min(1.f - uIncLimit, uInc + uIncStep);
+    else
+        uInc2 = max(uIncLimit, uInc - uIncStep);
+    std::cout << "u Increment = " << uInc << std::endl;
+    if (uInc2 != uInc)
     {
-        rotate_x += (float)((y - mouse_old_y) * 0.5f);
-        rotate_y += (float)((x - mouse_old_x) * 0.5f);
+        uInc = uInc2;
+        splineSize = generateSplineBuffers(order);
     }
-    mouse_old_x = x;
-    mouse_old_y = y;
-#endif // ThreeD
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    // Scroll Down
+    if (yoffset < 0)
+        if (glfwGetKey(window, GLFW_KEY_I))
+            incU(true);
+        else
+            zoom += 0.1f;
+
+
+    // scroll Up
+    else if (yoffset > 0)
+        if (glfwGetKey(window, GLFW_KEY_I))
+            incU(false);
+        else
+            zoom -= 0.1f;
 }
 
 void printOpenGLVersion()
@@ -290,5 +317,7 @@ void errorCallback(int error, const char* description)
 void window_size_callback(GLFWwindow* window, int width, int height)
 {
     aspectRatio = (float)width / (float)height;
+    window_width = width;
+    window_height = height;
     glViewport(0, 0, width, height);
 }

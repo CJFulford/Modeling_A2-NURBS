@@ -46,16 +46,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\general3D.frag">
+    <None Include="shaders\general.vert">
       <Filter>Source Files\shaders</Filter>
     </None>
-    <None Include="shaders\general3D.vert">
-      <Filter>Source Files\shaders</Filter>
-    </None>
-    <None Include="shaders\general2D.frag">
-      <Filter>Source Files\shaders</Filter>
-    </None>
-    <None Include="shaders\general2D.vert">
+    <None Include="shaders\general.frag">
       <Filter>Source Files\shaders</Filter>
     </None>
   </ItemGroup>
