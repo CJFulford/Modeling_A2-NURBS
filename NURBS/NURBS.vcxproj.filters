@@ -55,5 +55,8 @@
     <None Include="shaders\geometry.frag">
       <Filter>Source Files\shaders</Filter>
     </None>
+    <None Include="shaders\controls.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

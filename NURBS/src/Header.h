@@ -21,5 +21,8 @@ const glm::vec3 defaultUp(0.f, 1.f, 0.f),
                 defaultCam(0.f, 0.2f, 1.f),
                 defaultCenter(0.f, 0.f, 0.f);
 
-void bSpline(std::vector<glm::vec2> &input, std::vector<glm::vec2> &output, int order, float uinc);
-void generateGeometric(std::vector<glm::vec2> &input, std::vector<std::vector<glm::vec2>> &output, int order, float u);
+void nurbsSpline(std::vector<glm::vec2> &input, std::vector<float> &weights, std::vector<glm::vec2> &output, int order, float uInc);
+void generateGeometric(std::vector<glm::vec2> &input, std::vector<float> &weights, std::vector<std::vector<glm::vec2>> &output, int order, float u);
+
+
+

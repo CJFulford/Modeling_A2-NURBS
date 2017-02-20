@@ -166,6 +166,7 @@
     <ClCompile Include="src\Tools.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\controls.frag" />
     <None Include="shaders\general.frag" />
     <None Include="shaders\general.vert" />
     <None Include="shaders\geometry.frag" />

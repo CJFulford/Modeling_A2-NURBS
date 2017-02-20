@@ -25,6 +25,7 @@ float   rotate_x = 0.0,
         zoom = defaultZoom;
 
 std::vector<glm::vec2> controls;
+std::vector<float> weights;
 std::vector<std::vector<glm::vec2>> geom;
 
 const GLfloat clearColor[] = { 0.f, 0.f, 0.f };
@@ -58,9 +59,9 @@ int generateSplineBuffers(int order)
 
     std::vector<glm::vec2> spline;
 
-    bSpline(controls, spline, order, uInc);
+    nurbsSpline(controls, weights, spline, order, uInc);
     if(geometric)
-        generateGeometric(controls, geom, order, uDisplay);
+        generateGeometric(controls, weights, geom, order, uDisplay);
 
     glGenBuffers(1, &vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
@@ -106,7 +107,7 @@ void generateGeometricBuffer(std::vector<glm::vec2> geometry)
 void generateShaders()
 {
     splineProgram = generateProgram("shaders/general.vert", "shaders/general.frag");
-    controlsProgram = generateProgram("shaders/general.vert", "shaders/general.frag");
+    controlsProgram = generateProgram("shaders/general.vert", "shaders/controls.frag");
     geometryProgram = generateProgram("shaders/general.vert", "shaders/geometry.frag");
 }
 
@@ -125,8 +126,17 @@ void renderControls()
     glBindVertexArray(controlsVertexArray);
     glUseProgram(controlsProgram);
 
-    glPointSize(15);
-    glDrawArrays(GL_POINTS, 0, controls.size());
+    for (int i = 0; i < controls.size(); i++)
+    {
+        glPointSize(15 * weights[i]);
+        if (weights[i] == 0.f)
+            glColorMask(GL_FALSE, GL_TRUE, GL_TRUE, GL_TRUE);
+        else
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDrawArrays(GL_POINTS, i, 1);
+    }
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     glBindVertexArray(0);
 }
@@ -260,7 +270,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         case(GLFW_KEY_G):
             geometric = !geometric;
             if (geometric)
-                generateGeometric(controls, geom, order, uDisplay);
+                generateGeometric(controls, weights, geom, order, uDisplay);
             break;
 		default:
 			break;
@@ -291,7 +301,10 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
             }
         }
         if (i == controls.size())
+        {
             controls.push_back(glm::vec2(x, y));
+            weights.push_back(1.f);
+        }
     }
     else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
     {
@@ -344,7 +357,7 @@ void incUDisplay(bool inc)
     {
         uDisplay = uDisp2;
         if (geometric)
-            generateGeometric(controls, geom, order, uDisplay);
+            generateGeometric(controls, weights, geom, order, uDisplay);
         std::cout << "u Displayed =  = " << uDisplay << std::endl;
     }
 }
@@ -357,6 +370,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
             incU(true);
         else if (glfwGetKey(window, GLFW_KEY_U))
             incUDisplay(true);
+        else if (pointToMove != -1)
+            weights[pointToMove] = max(0.f, weights[pointToMove] - 0.1f);
         else
             zoom += 0.1f;
 
@@ -367,6 +382,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
             incU(false);
         else if (glfwGetKey(window, GLFW_KEY_U))
             incUDisplay(false);
+        else if (pointToMove != -1)
+            weights[pointToMove] += 0.1f;
         else
             zoom -= 0.1f;
 }
