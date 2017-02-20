@@ -22,3 +22,4 @@ const glm::vec3 defaultUp(0.f, 1.f, 0.f),
                 defaultCenter(0.f, 0.f, 0.f);
 
 void bSpline(std::vector<glm::vec2> &input, std::vector<glm::vec2> &output, int order, float uinc);
+void generateGeometric(std::vector<glm::vec2> &input, std::vector<std::vector<glm::vec2>> &output, int order, float u);

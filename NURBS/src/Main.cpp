@@ -11,19 +11,21 @@ double  mouse_old_x,
         mouse_old_y;
 
 float   aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT,
-        uInc = 0.01f;
+        uInc = 0.01f,
+        uDisplay = 0.45f;
 int order = 2, 
     splineSize = 0, 
     pointToMove = -1, 
     window_width = WINDOW_WIDTH,
     window_height = WINDOW_HEIGHT;
-bool movePoint = false;
+bool movePoint = false, geometric = false;
 
 float   rotate_x = 0.0,
         rotate_y = 0.0,
         zoom = defaultZoom;
 
 std::vector<glm::vec2> controls;
+std::vector<std::vector<glm::vec2>> geom;
 
 const GLfloat clearColor[] = { 0.f, 0.f, 0.f };
 
@@ -33,8 +35,11 @@ glm::vec3   up = defaultUp,
 
 GLuint  splineVertexArray = -1,
         controlsVertexArray = -1,
+        geomVertexArray = -1,
+
         splineProgram = -1, 
-        controlsProgram = -1;
+        controlsProgram = -1,
+        geometryProgram = -1;
 
 void errorCallback(int error, const char* description);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -54,12 +59,15 @@ int generateSplineBuffers(int order)
     std::vector<glm::vec2> spline;
 
     bSpline(controls, spline, order, uInc);
+    if(geometric)
+        generateGeometric(controls, geom, order, uDisplay);
 
     glGenBuffers(1, &vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(spline[0]) * spline.size(), &spline[0], GL_STATIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
     glEnableVertexAttribArray(0);
+
 
     glBindVertexArray(0);
     return spline.size();
@@ -80,10 +88,26 @@ void generateControlsBuffer()
     glBindVertexArray(0);
 }
 
+void generateGeometricBuffer(std::vector<glm::vec2> geometry)
+{
+    GLuint vertexBuffer = 0;
+
+    glGenVertexArrays(1, &geomVertexArray);
+    glBindVertexArray(geomVertexArray);
+    glGenBuffers(1, &vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(geometry[0]) * geometry.size(), &geometry[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+}
+
 void generateShaders()
 {
     splineProgram = generateProgram("shaders/general.vert", "shaders/general.frag");
     controlsProgram = generateProgram("shaders/general.vert", "shaders/general.frag");
+    geometryProgram = generateProgram("shaders/general.vert", "shaders/geometry.frag");
 }
 
 void renderSpline(int numOfVertices)
@@ -105,6 +129,24 @@ void renderControls()
     glDrawArrays(GL_POINTS, 0, controls.size());
 
     glBindVertexArray(0);
+}
+
+void renderGeometric()
+{
+
+    for (int i = 0; i < geom.size(); i++)
+    {
+        generateGeometricBuffer(geom[i]);
+
+        glBindVertexArray(geomVertexArray);
+        glUseProgram(geometryProgram);
+
+        glPointSize(10);
+        glDrawArrays(GL_POINTS, 0, geom[i].size());
+        glDrawArrays(GL_LINE_STRIP, 0, geom[i].size());
+
+        glBindVertexArray(0);
+    }
 }
 
 void pointMove(GLFWwindow *window)
@@ -162,18 +204,22 @@ int main()
 
 	while (!glfwWindowShouldClose(window))
 	{
-        glEnable(GL_DEPTH_TEST);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearBufferfv(GL_COLOR, 0, clearColor);
 
-        if (controls.size() > 1)
-            renderSpline(splineSize);
+
         if (controls.size() > 0)
             renderControls();
 
-        glDisable(GL_DEPTH_TEST);
+        if (controls.size() > 1)
+        {
+            renderSpline(splineSize);
+            if (geometric)
+                renderGeometric();
+        }
+
 		glfwSwapBuffers(window);
-		glfwPollEvents();
+		glfwWaitEvents();
 
         if (movePoint) pointMove(window);
 	}
@@ -210,6 +256,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                 splineSize = generateSplineBuffers(order);
             }
             std::cout << "order = " << order << std::endl;
+            break;
+        case(GLFW_KEY_G):
+            geometric = !geometric;
+            if (geometric)
+                generateGeometric(controls, geom, order, uDisplay);
             break;
 		default:
 			break;
@@ -272,11 +323,29 @@ void incU(bool inc)
         uInc2 = min(1.f - uIncLimit, uInc + uIncStep);
     else
         uInc2 = max(uIncLimit, uInc - uIncStep);
-    std::cout << "u Increment = " << uInc << std::endl;
     if (uInc2 != uInc)
     {
         uInc = uInc2;
+        std::cout << "u Increment = " << uInc << std::endl;
         splineSize = generateSplineBuffers(order);
+    }
+}
+
+void incUDisplay(bool inc)
+{
+    float       uIncStep = 0.01f,
+                uIncLimit = 0.0001f,
+                uDisp2 = 0.f;
+    if (!inc)
+        uDisp2 = min(1.f - uIncLimit, uDisplay + uIncStep);
+    else
+        uDisp2 = max(uIncLimit, uDisplay - uIncStep);
+    if (uDisp2 != uDisplay)
+    {
+        uDisplay = uDisp2;
+        if (geometric)
+            generateGeometric(controls, geom, order, uDisplay);
+        std::cout << "u Displayed =  = " << uDisplay << std::endl;
     }
 }
 
@@ -286,6 +355,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     if (yoffset < 0)
         if (glfwGetKey(window, GLFW_KEY_I))
             incU(true);
+        else if (glfwGetKey(window, GLFW_KEY_U))
+            incUDisplay(true);
         else
             zoom += 0.1f;
 
@@ -294,6 +365,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     else if (yoffset > 0)
         if (glfwGetKey(window, GLFW_KEY_I))
             incU(false);
+        else if (glfwGetKey(window, GLFW_KEY_U))
+            incUDisplay(false);
         else
             zoom -= 0.1f;
 }

@@ -58,3 +58,40 @@ void bSpline(vector<vec2> &input, vector<vec2> &output, int order, float uInc)
     // due to floating point errors, if we made the previous for loop <= 1.f, it might not reach 1.f. so we restrict it to < 1.f to ensure that it never reaches 1.f and then discretly add in the last control point as the final point. We need to do this as we assume that the user always wants the standard knot sequence
     output.push_back(input.back());
 }
+void generateGeometric(vector<vec2> &input, vector<vector<vec2>> &output, int order, float u)
+{
+    output.clear();
+
+    vector<vec2> c;
+    // determine the delta needed for the specific value of u
+    int delta = 0;
+    while (u >= knots[delta + 1]) { delta++; }
+
+    // get all the control points that are relavent to our u value
+    for (int i = 0; i <= order - 1; i++)
+        c.push_back(input[delta - i]);
+
+
+    // push all relative control points
+    output.push_back(c);
+
+
+    vector<vec2> temp;
+    // use the efficient implentation to determine placement of the final point
+    for (int r = order; r >= 2; r--)
+    {
+        int i = delta, s = 0;
+        for (s; s < r - 1; s++)
+        {
+            float   denominator = knots[i + r - 1] - knots[i],
+                omega = 0.f;
+            if (denominator > FLOAT_ERR)
+                omega = (u - knots[i]) / denominator;
+            c[s] = omega * c[s] + (1 - omega) * c[s + 1];
+            temp.push_back(c[s]);
+            i--;
+        }
+        output.push_back(temp);
+        temp.clear();
+    }
+}
