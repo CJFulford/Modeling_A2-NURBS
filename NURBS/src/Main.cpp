@@ -1,10 +1,10 @@
 #include "Header.h"
 #include "ShaderBuilder.h"
 
-#include <glad\glad.h>
-#include <GLFW\glfw3.h>
-#include <glm\gtx\transform.hpp>
-#include <glm\gtc\type_ptr.hpp>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/gtx/transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
 double  mouse_old_x, 
@@ -20,19 +20,11 @@ int order = 2,
     window_height = WINDOW_HEIGHT;
 bool movePoint = false, geometric = false;
 
-float   rotate_x = 0.0,
-        rotate_y = 0.0,
-        zoom = defaultZoom;
-
 std::vector<glm::vec2> controls;
 std::vector<float> weights;
 std::vector<std::vector<glm::vec2>> geom;
 
 const GLfloat clearColor[] = { 0.f, 0.f, 0.f };
-
-glm::vec3   up = defaultUp,
-            cam = defaultCam,
-            center = defaultCenter;
 
 GLuint  splineVertexArray = -1,
         controlsVertexArray = -1,
@@ -293,7 +285,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         int i = 0;
         for (i; i < controls.size(); i++)
         {
-            if (glm::distance(glm::vec2(x, y), controls[i]) <= pointSize)
+            if (glm::distance(glm::vec2(x, y), controls[i]) <= pointSize * std::max(0.5f, weights[i]))
             {
                 movePoint = true;
                 pointToMove = i;
@@ -310,7 +302,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     {
         for (int i = 0; i < controls.size(); i++)
         {
-            if (glm::distance(glm::vec2(x, y), controls[i]) <= pointSize)
+            if (glm::distance(glm::vec2(x, y), controls[i]) <= pointSize * std::max(0.5f, weights[i]))
             {
                 controls.erase(controls.begin() + i);
                 break;
@@ -318,7 +310,10 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         }
     }
     else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+    {
         movePoint = false;
+        pointToMove = -1;
+	}
 
     if (controls.size() >= 1)
         generateControlsBuffer();
@@ -330,12 +325,12 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void incU(bool inc)
 {
     float   uIncStep    = 0.005f, 
-            uIncLimit   = 0.0001f, 
+            uIncLimit   = 0.001f, // tried 0.0001 but this slowed the program considerably
             uInc2       = 0.f;
     if (!inc)
-        uInc2 = min(1.f - uIncLimit, uInc + uIncStep);
+        uInc2 = std::min(1.f - uIncLimit, uInc + uIncStep);
     else
-        uInc2 = max(uIncLimit, uInc - uIncStep);
+        uInc2 = std::max(uIncLimit, uInc - uIncStep);
     if (uInc2 != uInc)
     {
         uInc = uInc2;
@@ -346,19 +341,19 @@ void incU(bool inc)
 
 void incUDisplay(bool inc)
 {
-    float       uIncStep = 0.01f,
-                uIncLimit = 0.0001f,
+    float       uIncStep = 0.005f,
+                uIncLimit = 0.001f,
                 uDisp2 = 0.f;
     if (!inc)
-        uDisp2 = min(1.f - uIncLimit, uDisplay + uIncStep);
+        uDisp2 = std::min(1.f - uIncLimit, uDisplay + uIncStep);
     else
-        uDisp2 = max(uIncLimit, uDisplay - uIncStep);
+        uDisp2 = std::max(uIncLimit, uDisplay - uIncStep);
     if (uDisp2 != uDisplay)
     {
         uDisplay = uDisp2;
         if (geometric)
             generateGeometric(controls, weights, geom, order, uDisplay);
-        std::cout << "u Displayed =  = " << uDisplay << std::endl;
+        std::cout << "u Displayed = " << uDisplay << std::endl;
     }
 }
 
@@ -366,26 +361,24 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     // Scroll Down
     if (yoffset < 0)
+    {
         if (glfwGetKey(window, GLFW_KEY_I))
             incU(true);
         else if (glfwGetKey(window, GLFW_KEY_U))
             incUDisplay(true);
         else if (pointToMove != -1)
-            weights[pointToMove] = max(0.f, weights[pointToMove] - 0.1f);
-        else
-            zoom += 0.1f;
-
-
+            weights[pointToMove] = std::max(0.f, weights[pointToMove] - 0.1f);
+	}
     // scroll Up
     else if (yoffset > 0)
+    {
         if (glfwGetKey(window, GLFW_KEY_I))
             incU(false);
         else if (glfwGetKey(window, GLFW_KEY_U))
             incUDisplay(false);
         else if (pointToMove != -1)
             weights[pointToMove] += 0.1f;
-        else
-            zoom -= 0.1f;
+	}
 }
 
 void printOpenGLVersion()

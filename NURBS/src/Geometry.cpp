@@ -40,6 +40,7 @@ void generateGeometric(vector<vec2> &input, vector<float> &weights, vector<vecto
                 omega = (u - knots[i]) / denominator;
             c[s] = omega * c[s] + (1 - omega) * c[s + 1];
             w[s] = omega * w[s] + (1 - omega) * w[s + 1];
+            // since we are looking to view all the in-between geometry, we need to record every point that we gnerate
             temp.push_back(c[s] / w[s]);
             i--;
         }

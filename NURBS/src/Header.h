@@ -2,7 +2,7 @@
 
 #include "Tools.h"
 
-#include <glm\glm.hpp>
+#include <glm/glm.hpp>
 #include <vector>
 
 #define FLOAT_ERR 0.00001f

@@ -37,8 +37,8 @@ void printFloatVector(std::vector<float> v)
 //Rodrigues' rotation formula
 glm::vec3 rodriguesRotate(glm::vec3 vector, glm::vec3 axis, float angle)
 {
-	return glm::vec3((vector * cos(angle)) +
-		(glm::cross(axis, vector) * sin(angle)) +
-		(axis * glm::dot(axis, vector) * (1.f - cos(angle))));
+	return glm::vec3((vector * (float)cos(angle)) +
+		(glm::cross(axis, vector) * (float)sin(angle)) +
+		(axis * glm::dot(axis, vector) * (1.f - (float)cos(angle))));
 }
 
